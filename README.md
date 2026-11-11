@@ -3,7 +3,7 @@
 纯本地 Android App。**不用 root、不用电脑、不联网到第三方服务器**——所有数据只存在手机本地。
 
 > ⚠️ 一句话说清能力边界：它是「接口当眼睛 + 无障碍当手」。
-> 接口负责 15 秒问一次「老师开签到了吗」；一旦开签，无障碍服务会把云班课 App 拉到前台并点掉签到按钮。
+> 接口负责每 30 秒问一次「老师开签到了吗」；一旦开签，无障碍服务会把云班课 App 拉到前台并点掉签到按钮。
 > **纯接口提交签到走不通**——云班课网页端没有学生签到接口，App 端做了加固，所以只能这么绕。
 
 ---
@@ -12,9 +12,9 @@
 
 ```
 后台服务（前台通知常驻）
-   ↓ 每 15 秒（上课时段）或 5 分钟（其他时间）
+   ↓ 每 30 秒一轮（上课时段）；非上课时段自动放宽到 120 秒省电
 调 coreapi.mosoteach.cn → 问「这门课现在开签了吗」
-   ↓ 开签了
+   ↓ 开签了，且 checkinFlag=N（我还没签）
 亮屏 → 上滑解锁 → 把云班课 App 拉到前台
    ↓
 无障碍服务扫描界面 → 找到「签到」按钮 → 点掉
@@ -30,9 +30,9 @@
 
 APK 位置：`app/build/outputs/apk/debug/app-debug.apk`（约 6.3 MB）
 
-```powershell
-# 手机开 USB 调试并连电脑后
-E:\android-sdk\platform-tools\adb.exe install -r E:\ai项目\YbkAutoSign\app\build\outputs\apk\debug\app-debug.apk
+```bash
+# 手机开 USB 调试并连上电脑后
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 或者直接把 APK 拷进手机点安装（需要允许「安装未知来源应用」）。
@@ -43,7 +43,8 @@ E:\android-sdk\platform-tools\adb.exe install -r E:\ai项目\YbkAutoSign\app\bui
 填云班课手机号 + 密码，点「登录并拉取课程」。成功了会显示 `已登录：手机号 · token xxxxxxxx… · 本地缓存 N 门课`。
 
 ### ② 勾选课程
-一个都不勾 = 监控全部课程。建议只勾本学期那几门，轮询更省电。
+首次打开会自动勾选「本学期」的课，之后记住你的勾选。
+上方三个快捷键：**只选本学期 / 全选 / 全不选**；标题下实时显示「已勾选 N / 共 M 门」。
 
 ### ③ 喂课程表（可选）
 一行一节，格式：
@@ -174,27 +175,31 @@ X-token: <登录返回的 token>          # 登录接口本身不带
 
 ## 六、自己编译
 
-本机环境（已配好，实测可用）：
-
-- JDK 17：`C:\Program Files\Java\jdk-17`
-- Gradle 8.7：`E:\ai项目\.toolchain\gradle-8.7`
-- Android SDK：`E:\android-sdk`（platform-tools / platforms;android-34 / build-tools;34.0.0）
+需要：**JDK 17**、**Android SDK**（platform-tools + `platforms;android-34` + `build-tools;34.0.0`）。
 
 ```bash
-cmd //c "set \"JAVA_HOME=C:\Program Files\Java\jdk-17\" && E:\ai项目\.toolchain\gradle-8.7\bin\gradle.bat -p E:\ai项目\YbkAutoSign assembleDebug --console=plain"
+# 1) 告诉 Gradle SDK 在哪（local.properties 已 gitignore，需自己建）
+echo "sdk.dir=/path/to/Android/Sdk" > local.properties
+
+# 2) 编译（仓库自带 gradle wrapper，不用装 Gradle）
+./gradlew assembleDebug          # Linux / macOS
+gradlew.bat assembleDebug        # Windows
 ```
 
 产物：`app/build/outputs/apk/debug/app-debug.apk`
+
+也可以直接用 Android Studio 打开工程根目录，等 Gradle sync 完点 Run。
 
 踩过的坑：
 
 | 报错 | 原因 | 处理 |
 |---|---|---|
-| `project path contains non-ASCII characters` | 工程在 `E:\ai项目`（中文目录） | `gradle.properties` 里加 `android.overridePathCheck=true`，aapt2 实测正常 |
+| `project path contains non-ASCII characters` | 工程放在中文目录（如 `E:\ai项目`） | `gradle.properties` 里加 `android.overridePathCheck=true`，aapt2 实测正常 |
 | `resource mipmap/ic_launcher not found` | 缺图标 | 用 `mipmap-anydpi-v26` 的 adaptive-icon（minSdk 26 不需要 png） |
-| MSYS 下调 gradle 报缺 `cygpath` | MSYS 环境的 gradle 脚本跑不了 | 统一走 `cmd //c` + `gradle.bat` |
+| MSYS 下调 gradle 报缺 `cygpath` | MSYS 里的 gradle 脚本跑不了 | 走 `cmd //c` + `gradle.bat` |
 | MSYS 下 `cmd /c` 直接进交互模式 | MSYS 把 `/c` 当路径转换了 | 用 `cmd //c`（双斜杠） |
 | `Unresolved reference: App` | 跨包引用 | Notifier.kt 补 `import com.yg.ybkautosign.App` |
+| 深色模式下界面白字/看不清 | `DayNight` 主题把 Material 组件文字刷白，而背景写死浅色 | 主题改 `Light.NoActionBar` + `android:forceDarkAllowed=false` |
 
 ---
 
