@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      固定浅色主题：手机上开了深色模式时，DayNight 会把 Material 组件文字刷成白色，
+      而本页面背景是固定的浅灰，结果就是白底白字看不清。这里锁死 Light。
+      forceDarkAllowed=false 再挡一层系统「强制深色」颜色反转。
+    -->
+    <style name="Theme.YbkAutoSign" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">#1E6FD9</item>
+        <item name="colorPrimaryVariant">#1554A8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#1E6FD9</item>
+        <item name="android:statusBarColor">#1554A8</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:windowBackground">#F6F7F9</item>
+        <!-- 全局文字色，兜住所有没单独指定颜色的控件 -->
+        <item name="android:textColorPrimary">#000000</item>
+        <item name="android:textColorSecondary">#000000</item>
+        <item name="android:textColorTertiary">#000000</item>
+        <item name="colorOnSurface">#000000</item>
+        <item name="colorOnBackground">#000000</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="android:colorBackground">#F6F7F9</item>
+    </style>
+
+    <!-- 描边按钮：黑字黑边，别用主题默认的蓝色 -->
+    <style name="BtnOutline" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">#000000</item>
+        <item name="strokeColor">#000000</item>
+        <item name="rippleColor">#22000000</item>
+    </style>
+
+    <!-- 文字按钮：黑字 -->
+    <style name="BtnText" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">#000000</item>
+        <item name="rippleColor">#22000000</item>
+    </style>
+</resources>

@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+app/build/
+captures/
+
+# 本机 Android SDK 路径（含绝对路径，不能提交）
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# 构建产物
+*.apk
+*.aab
+*.dex
+*.jks
+*.keystore
+
+# 日志与临时脚本输出
+tools/probe_out.txt
+
+# Python
+__pycache__/
+*.pyc
