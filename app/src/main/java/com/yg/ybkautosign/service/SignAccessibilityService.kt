@@ -11,6 +11,7 @@ import android.os.PowerManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.yg.ybkautosign.core.LogBus
+import com.yg.ybkautosign.core.Notifier
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -37,10 +38,10 @@ class SignAccessibilityService : AccessibilityService() {
         var connected = false
             private set
 
-        /** 外部（SignEngine / 前台服务）调用：要求立刻去签一次。 */
-        fun requestSign(reason: String): Boolean {
+        /** 外部（SignEngine / 前台服务）调用：要求立刻去签一次。courseName 用于结果通知。 */
+        fun requestSign(reason: String, courseName: String = ""): Boolean {
             val s = instance ?: return false
-            return s.startAutoSign(reason)
+            return s.startAutoSign(reason, courseName)
         }
     }
 
@@ -48,6 +49,7 @@ class SignAccessibilityService : AccessibilityService() {
     private val busy = AtomicBoolean(false)
     private var attempts = 0
     private var tag = ""
+    private var courseName = ""
 
     private val scanRunnable = Runnable { doScan() }
 
@@ -86,12 +88,13 @@ class SignAccessibilityService : AccessibilityService() {
 
     // ------------------------------------------------------------ 自动签到主流程
 
-    fun startAutoSign(reason: String): Boolean {
+    fun startAutoSign(reason: String, course: String = ""): Boolean {
         if (!busy.compareAndSet(false, true)) {
             LogBus.log("[无障碍] 上一轮还没结束，忽略本次请求")
             return false
         }
         tag = reason
+        courseName = course
         attempts = 0
         LogBus.log("[无障碍] 开始自动签到：$reason")
 
@@ -100,11 +103,23 @@ class SignAccessibilityService : AccessibilityService() {
         return true
     }
 
-    private fun stopAutoSign(why: String) {
-        if (busy.getAndSet(false)) {
+    /**
+     * 结束一轮。
+     * @param result 1=签到成功（短震+通知） -1=失败（急促震动+通知） 0=中性（中断/被忽略，不打扰用户）
+     */
+    private fun stopAutoSign(why: String, result: Int = 0) {
+        val wasBusy = busy.getAndSet(false)
+        if (wasBusy) {
             LogBus.log("[无障碍] 结束：$why")
         }
         main.removeCallbacks(scanRunnable)
+        if (!wasBusy) return
+
+        val name = courseName.ifBlank { "云班课签到" }
+        when (result) {
+            1 -> Notifier.notifySigned(name)
+            -1 -> Notifier.notifyFailed(name, why)
+        }
     }
 
     /** 点亮屏幕。息屏状态下无障碍读不到界面，不点亮什么都点不了。 */
@@ -154,7 +169,7 @@ class SignAccessibilityService : AccessibilityService() {
     private fun launchApp() {
         val intent = packageManager.getLaunchIntentForPackage(TARGET_PKG)
         if (intent == null) {
-            stopAutoSign("手机里没装云班课 App（$TARGET_PKG）")
+            stopAutoSign("手机里没装云班课 App（$TARGET_PKG）", -1)
             return
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -163,7 +178,7 @@ class SignAccessibilityService : AccessibilityService() {
             LogBus.log("[无障碍] 已拉起云班课，等待签到入口出现…")
         } catch (e: Exception) {
             LogBus.log("[无障碍] 拉起 App 失败：${e.message}（检查是否给了悬浮窗权限）")
-            stopAutoSign("拉起 App 失败")
+            stopAutoSign("拉起 App 失败", -1)
             return
         }
         main.postDelayed(scanRunnable, 1500)
@@ -175,7 +190,7 @@ class SignAccessibilityService : AccessibilityService() {
         if (!busy.get()) return
         attempts++
         if (attempts > 40) {   // 约 30 秒
-            stopAutoSign("扫描超时，没找到可点的签到按钮")
+            stopAutoSign("扫描超时，没找到可点的签到按钮", -1)
             return
         }
 
@@ -188,7 +203,7 @@ class SignAccessibilityService : AccessibilityService() {
 
         val screenText = collectText(root)
         if (screenText.contains("签到成功") || screenText.contains("已签到") || screenText.contains("签到已提交")) {
-            stopAutoSign("界面显示已签到成功")
+            stopAutoSign("界面显示已签到成功", 1)
             return
         }
 
@@ -207,7 +222,7 @@ class SignAccessibilityService : AccessibilityService() {
             val r2 = try { rootInActiveWindow } catch (e: Exception) { null }
             val t2 = collectText(r2)
             if (t2.contains("签到成功") || t2.contains("已签到") || t2.contains("签到已提交")) {
-                stopAutoSign("签到成功")
+                stopAutoSign("签到成功", 1)
             } else {
                 main.postDelayed(scanRunnable, 1200)
             }

@@ -52,6 +52,8 @@ class MainActivity : AppCompatActivity() {
         b.etTable.setText(Store.timetableRaw)
         b.etPoll.setText(Store.pollSec.toString())
         b.swDebug.isChecked = Store.debugRaw
+        b.swVibrate.isChecked = Store.vibrateOn
+        renderVibLevel()
         renderCourses(Store.courses)
         renderTableHint(Store.timetableRaw)
         renderStatus()
@@ -72,6 +74,16 @@ class MainActivity : AppCompatActivity() {
         b.btnNotif.setOnClickListener { requestNotifPermission() }
         b.swDebug.setOnCheckedChangeListener { _, v -> Store.debugRaw = v }
 
+        // 震动提醒
+        b.swVibrate.setOnCheckedChangeListener { _, v ->
+            Store.vibrateOn = v
+            if (v) Notifier.vibrate(longArrayOf(0, 260, 140, 260))
+        }
+        b.btnVibLight.setOnClickListener { Store.vibrateLevel = 0; renderVibLevel() }
+        b.btnVibMid.setOnClickListener { Store.vibrateLevel = 1; renderVibLevel() }
+        b.btnVibHeavy.setOnClickListener { Store.vibrateLevel = 2; renderVibLevel() }
+        b.btnVibTest.setOnClickListener { testVibrate() }
+
         // 轮询间隔随手改随手存，改完要在「开始监控」前生效需重启服务
         b.etPoll.doAfterTextChanged { s ->
             s?.toString()?.toIntOrNull()?.let { Store.pollSec = it }
@@ -80,10 +92,24 @@ class MainActivity : AppCompatActivity() {
         collectLog()
         maybeAskNotif()
 
-        // 命令行触发自检，方便连着电脑时验证整条链路：
-        // adb shell am start -n com.yg.ybkautosign/.MainActivity -e action test
-        if (intent?.getStringExtra("action") == "test") {
-            b.root.postDelayed({ testOnce() }, 1200)
+        handleCliAction()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleCliAction()
+    }
+
+    /**
+     * 命令行触发，方便连着电脑时验证：
+     *   adb shell am start -n com.yg.ybkautosign/.MainActivity -e action test      ← 立即查一次开签
+     *   adb shell am start -n com.yg.ybkautosign/.MainActivity -e action vibrate   ← 立即震一次
+     */
+    private fun handleCliAction() {
+        when (intent?.getStringExtra("action")) {
+            "test" -> b.root.postDelayed({ testOnce() }, 1200)
+            "vibrate" -> b.root.postDelayed({ testVibrate() }, 1200)
         }
     }
 
@@ -201,6 +227,33 @@ class MainActivity : AppCompatActivity() {
             b.boxCourses.addView(cb)
         }
         renderCourseCount()
+    }
+
+    // ------------------------------------------------------------ 震动提醒
+
+    private fun renderVibLevel() {
+        val lv = Store.vibrateLevel
+        val on = 0xFF000000.toInt()
+        val off = 0xFF9AA3AE.toInt()
+        b.btnVibLight.setTextColor(if (lv == 0) on else off)
+        b.btnVibMid.setTextColor(if (lv == 1) on else off)
+        b.btnVibHeavy.setTextColor(if (lv == 2) on else off)
+    }
+
+    /** 立刻震一次，用户在真机上确认「手机到底震不震」。 */
+    private fun testVibrate() {
+        if (!Store.vibrateOn) {
+            Toast.makeText(this, "震动提醒是关的，先打开上面的开关", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Notifier.vibrate(longArrayOf(0, 500, 250, 500, 250, 900))
+        val name = when (Store.vibrateLevel) {
+            0 -> "轻"
+            1 -> "中"
+            else -> "重"
+        }
+        LogBus.log("[震动] 已发出测试震动（强度：$name）。如果手机没震，看下面那行提示。")
+        Toast.makeText(this, "震了没？没震就看下面的提示", Toast.LENGTH_SHORT).show()
     }
 
     private fun renderCourseCount() {

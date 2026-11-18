@@ -120,7 +120,7 @@ object SignEngine {
     /** 交给无障碍去执行；无障碍没连上就只发通知提醒手动点。 */
     private fun dispatch(course: Course, open: OpenCheckin) {
         val reason = "${course.name} 开签（${open.type.ifBlank { "未知类型" }}）"
-        val ok = SignAccessibilityService.requestSign(reason)
+        val ok = SignAccessibilityService.requestSign(reason, course.name)
         if (ok) {
             LogBus.log("[执行] 已交给无障碍服务自动点击")
         } else {

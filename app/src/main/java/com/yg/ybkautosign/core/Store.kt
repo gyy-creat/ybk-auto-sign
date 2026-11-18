@@ -20,6 +20,8 @@ object Store {
     private const val K_SIGNED = "signed_keys"
     private const val K_POLL_SEC = "poll_sec"
     private const val K_SEL_INITED = "selected_inited_v2"
+    private const val K_VIBRATE = "vibrate_on"
+    private const val K_VIBRATE_LEVEL = "vibrate_level"
 
     /** 轮询间隔（秒）。用户在界面上改，默认 30 秒。 */
     var pollSec: Int
@@ -27,6 +29,16 @@ object Store {
         set(value) {
             sp.edit().putInt(K_POLL_SEC, value.coerceIn(5, 3600)).apply()
         }
+
+    /** 开签时是否震动提醒，默认开。 */
+    var vibrateOn: Boolean
+        get() = sp.getBoolean(K_VIBRATE, true)
+        set(value) = sp.edit().putBoolean(K_VIBRATE, value).apply()
+
+    /** 震动强度：0=轻 1=中 2=重，默认重。 */
+    var vibrateLevel: Int
+        get() = sp.getInt(K_VIBRATE_LEVEL, 2).coerceIn(0, 2)
+        set(value) = sp.edit().putInt(K_VIBRATE_LEVEL, value.coerceIn(0, 2)).apply()
 
     fun init(ctx: Context) {
         if (!::sp.isInitialized) {

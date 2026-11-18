@@ -309,6 +309,78 @@
                 android:textSize="15sp" />
         </LinearLayout>
 
+        <!-- 震动提醒 -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/swVibrate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:checked="true"
+            android:text="开签时震动提醒"
+            android:textColor="#000000"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="震动强度"
+                android:textSize="14sp"
+                android:textColor="#000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVibLight"
+                style="@style/BtnText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="轻" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVibMid"
+                style="@style/BtnText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="中" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVibHeavy"
+                style="@style/BtnText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="重" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnVibTest"
+            style="@style/BtnOutline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="试一下震动（确认手机没把震动关掉）" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="点上面这个按钮如果手机不震：检查「设置 → 声音与振动」是否关了震动、或者开了勿扰模式；小米还要确认「无障碍 → 听觉/触觉反馈」没被限制。"
+            android:textSize="11sp"
+            android:textColor="#000000" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStart"
             android:layout_width="match_parent"

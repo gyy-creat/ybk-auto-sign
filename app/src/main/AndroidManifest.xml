@@ -10,6 +10,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- 开签震动提醒 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 锁屏时直接全屏弹出签到提醒（Android 14 起非闹钟类 App 会被系统降级为普通通知，尽力而为） -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <!-- Android 10+ 从后台拉起云班课 App 必须有悬浮窗权限，否则 startActivity 静默失败 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
