@@ -381,6 +381,59 @@
             android:textSize="11sp"
             android:textColor="#000000" />
 
+        <!-- 闹钟铃声提示音 -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/swSound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:checked="true"
+            android:text="开签时响闹钟铃声"
+            android:textColor="#000000"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="响铃时长（秒，3-60）"
+                android:textSize="14sp"
+                android:textColor="#000000" />
+
+            <EditText
+                android:id="@+id/etSoundSec"
+                android:layout_width="64dp"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:inputType="number"
+                android:maxLength="2"
+                android:text="12"
+                android:textColor="#000000"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSoundTest"
+            style="@style/BtnOutline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="试一下闹钟铃声" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="铃声走「闹钟」声道，静音模式一般压不住它；闹钟音量被人调成 0 时会临时抬到 60% 再还原。不响就去查「设置 → 声音与振动 → 闹钟音量」和勿扰模式。"
+            android:textSize="11sp"
+            android:textColor="#000000" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStart"
             android:layout_width="match_parent"

@@ -135,6 +135,40 @@ adb shell cmd appops set com.yg.ybkautosign ACCESS_RESTRICTED_SETTINGS allow
 没震？依次查：① 手机「声音与振动」里震动总开关；② 勿扰模式/静音模式（本 App 请求的是
 `USAGE_ALARM`，通常能穿透静音，但部分 ROM 仍会拦）；③ 上面那个「开签时震动提醒」开关。
 
+### ⑦ 闹钟铃声
+
+光震动在兜里感知不到，所以开签时**同时响闹钟铃**：
+
+| 场景 | 响多久 |
+|---|---|
+| 发现开签、正在自动点 | 5 秒（它自己在动，不用你操心） |
+| 发现开签、要你手动 | 你设的时长，默认 12 秒 |
+| 自动签失败 | 6 秒 |
+
+实现要点，也是踩过的坑：
+
+- **不是**用通知渠道的 `setSound`。渠道声音只响一次、而且用户在系统里一关就哑。
+  这里用 `MediaPlayer` 加载系统默认闹钟铃，`isLooping = true` 循环播到设定秒数。
+- **为什么不用 `Ringtone`**：`Ringtone.setLooping()` 虽然 API 28 就有了，但在部分 ROM 上只响一遍
+  然后静音，12 秒设了等于白设。现在 `MediaPlayer` 是主路径，`Ringtone` 只在 MediaPlayer 失败时兜底，
+  日志里会写清楚走的是哪条（`MediaPlayer 循环` / `Ringtone 兜底`）。
+- 音频属性 `USAGE_ALARM` + `CONTENT_TYPE_SONIFICATION`，走「闹钟」声道，静音模式一般压不住；
+  `dumpsys` 里能看到 `AUDIO_STREAM_ALARM`、蓝牙 A2DP 被 `SUPPRESSED`，也就是强制从手机扬声器出。
+- **音量保护**：闹钟音量被调到 0 或很低时（实测本机是 4/15），播放前临时抬到最大音量的 60%，
+  响完立刻还原成原值。日志里会打出 `（音量 4/15）` 方便对账，`dumpsys audio` 能看到还原后的值。
+
+要在电脑上验，不用等真的开签：
+
+```bash
+# 放 12 秒铃声
+adb shell am start -n com.yg.ybkautosign/.MainActivity -e action sound -e sec 12
+# 模拟一次完整开签提醒：震动 + 铃声 + 通知
+adb shell am start -n com.yg.ybkautosign/.MainActivity -e action alert
+```
+
+⚠️ 刚 `install -r` 或刚 `force-stop` 完马上发 `am start`，intent 可能被丢掉（日志里看不到 `[CMD]`）。
+等 3 秒再发一次即可，这不是 App 的 bug。
+
 ---
 
 ## 三、手机厂商保活（很重要）

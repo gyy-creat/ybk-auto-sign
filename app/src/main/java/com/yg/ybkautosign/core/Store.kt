@@ -22,6 +22,8 @@ object Store {
     private const val K_SEL_INITED = "selected_inited_v2"
     private const val K_VIBRATE = "vibrate_on"
     private const val K_VIBRATE_LEVEL = "vibrate_level"
+    private const val K_SOUND = "sound_on"
+    private const val K_SOUND_SEC = "sound_sec"
 
     /** 轮询间隔（秒）。用户在界面上改，默认 30 秒。 */
     var pollSec: Int
@@ -39,6 +41,16 @@ object Store {
     var vibrateLevel: Int
         get() = sp.getInt(K_VIBRATE_LEVEL, 2).coerceIn(0, 2)
         set(value) = sp.edit().putInt(K_VIBRATE_LEVEL, value.coerceIn(0, 2)).apply()
+
+    /** 开签时播放闹钟铃声 */
+    var soundOn: Boolean
+        get() = sp.getBoolean(K_SOUND, true)
+        set(value) = sp.edit().putBoolean(K_SOUND, value).apply()
+
+    /** 铃声持续秒数（响这么久自动停，防止一直吵） */
+    var soundSec: Int
+        get() = sp.getInt(K_SOUND_SEC, 12).coerceIn(3, 60)
+        set(value) = sp.edit().putInt(K_SOUND_SEC, value.coerceIn(3, 60)).apply()
 
     fun init(ctx: Context) {
         if (!::sp.isInitialized) {

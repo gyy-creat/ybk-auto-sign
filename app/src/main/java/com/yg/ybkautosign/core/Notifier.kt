@@ -5,8 +5,15 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -119,6 +126,139 @@ object Notifier {
         }
     }
 
+    // ------------------------------------------------------------ 铃声（闹钟提示音）
+
+    private val main = Handler(Looper.getMainLooper())
+    private var ringtone: Ringtone? = null
+    private var player: MediaPlayer? = null
+    private var stopTask: Runnable? = null
+    private var savedAlarmVol = -1
+
+    /**
+     * 播放闹钟铃声若干秒，结束后自动停并把音量还原。
+     *
+     * 为什么不用通知渠道的 setSound：
+     * 渠道声音只在「发通知那一刻」响一次，而且用户在系统里一关就哑。
+     * 开签只开几十秒，错过就没了，所以这里直接放闹钟铃，循环响到指定秒数。
+     *
+     * 音量保护：闹钟音量被人调到 0/很低时，临时抬到最大音量的 60%，响完还原。
+     */
+    fun playAlarm(seconds: Int = Store.soundSec) {
+        if (!Store.soundOn) {
+            LogBus.log("[铃声] 已经关掉了提示音，跳过")
+            return
+        }
+        val ctx = App.ctx ?: return
+        stopAlarm()
+
+        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        var curVol = -1
+        var maxVol = -1
+        if (am != null) {
+            curVol = runCatching { am.getStreamVolume(AudioManager.STREAM_ALARM) }.getOrDefault(-1)
+            maxVol = runCatching { am.getStreamMaxVolume(AudioManager.STREAM_ALARM) }.getOrDefault(-1)
+            val floor = (maxVol * 0.6f).toInt()
+            if (maxVol > 0 && curVol < floor) {
+                savedAlarmVol = curVol
+                runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, floor, 0) }
+            }
+        }
+
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        // 依次降级找铃声，闹钟铃 → 来电铃 → 通知音
+        val candidates = intArrayOf(
+            RingtoneManager.TYPE_ALARM,
+            RingtoneManager.TYPE_RINGTONE,
+            RingtoneManager.TYPE_NOTIFICATION
+        )
+        var uri: Uri? = null
+        var used = ""
+        for (t in candidates) {
+            val u = runCatching { RingtoneManager.getDefaultUri(t) }.getOrNull() ?: continue
+            val exists = runCatching { RingtoneManager.getRingtone(ctx, u) }.getOrNull() != null
+            if (!exists) continue
+            uri = u
+            used = when (t) {
+                RingtoneManager.TYPE_ALARM -> "闹钟铃声"
+                RingtoneManager.TYPE_RINGTONE -> "来电铃声"
+                else -> "通知音"
+            }
+            break
+        }
+
+        if (uri == null) {
+            LogBus.log("[铃声] 系统里找不到可用铃声，只震动不响铃")
+            restoreVolume(am)
+            return
+        }
+
+        // 首选 MediaPlayer：isLooping 比 Ringtone 可靠，长短铃声都能响满
+        val mp = MediaPlayer()
+        val startedByPlayer = runCatching {
+            mp.setAudioAttributes(attrs)
+            mp.setDataSource(ctx, uri)
+            mp.isLooping = true
+            mp.prepare()
+            mp.start()
+            true
+        }.getOrDefault(false)
+
+        if (startedByPlayer) {
+            player = mp
+            LogBus.log("[铃声] 开始播放${used}，${seconds}s（音量 ${curVol}/${maxVol}，MediaPlayer 循环）")
+        } else {
+            runCatching { mp.release() }
+            // 兜底：Ringtone
+            val r = runCatching { RingtoneManager.getRingtone(ctx, uri) }.getOrNull()
+            if (r == null) {
+                LogBus.log("[铃声] MediaPlayer 和 Ringtone 都启动失败，只震动")
+                restoreVolume(am)
+                return
+            }
+            runCatching { r.audioAttributes = attrs }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                runCatching { r.isLooping = true }
+            }
+            val ok = runCatching { r.play(); true }.getOrDefault(false)
+            if (!ok) {
+                LogBus.log("[铃声] 播放失败（可能被系统静音策略拦了）")
+                restoreVolume(am)
+                return
+            }
+            ringtone = r
+            LogBus.log("[铃声] 开始播放${used}，${seconds}s（音量 ${curVol}/${maxVol}，Ringtone 兜底）")
+        }
+
+        val task = Runnable {
+            LogBus.log("[铃声] 响够 ${seconds}s，已停止")
+            stopAlarm()
+        }
+        stopTask = task
+        main.postDelayed(task, seconds * 1000L)
+    }
+
+    fun stopAlarm() {
+        stopTask?.let { main.removeCallbacks(it) }
+        stopTask = null
+        runCatching { player?.stop() }
+        runCatching { player?.release() }
+        player = null
+        runCatching { ringtone?.stop() }
+        ringtone = null
+        val am = App.ctx?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        restoreVolume(am)
+    }
+
+    private fun restoreVolume(am: AudioManager?) {
+        if (savedAlarmVol < 0 || am == null) return
+        runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVol, 0) }
+        savedAlarmVol = -1
+    }
+
     // ------------------------------------------------------------ 通知
 
     /** 发现开签了。autoStarted=true 表示无障碍已经在自动点了。 */
@@ -134,6 +274,8 @@ object Notifier {
         }
 
         vibrate(if (autoStarted) PAT_AUTO else PAT_CALL)
+        // 自动签：响 5 秒就够（它自己在动）；要人手动签：响满，当闹钟用
+        playAlarm(if (autoStarted) 5 else Store.soundSec)
         post(ctx, title, text, if (autoStarted) PAT_AUTO else PAT_CALL)
     }
 
@@ -150,6 +292,7 @@ object Notifier {
         val ctx = App.ctx ?: return
         ensureChannels(ctx)
         vibrate(PAT_FAIL)
+        playAlarm(6)
         post(ctx, "⚠️ 自动签到没成功：$courseName", "$why —— 请立刻手动签到", PAT_FAIL)
     }
 

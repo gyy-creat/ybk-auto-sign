@@ -53,6 +53,8 @@ class MainActivity : AppCompatActivity() {
         b.etPoll.setText(Store.pollSec.toString())
         b.swDebug.isChecked = Store.debugRaw
         b.swVibrate.isChecked = Store.vibrateOn
+        b.swSound.isChecked = Store.soundOn
+        b.etSoundSec.setText(Store.soundSec.toString())
         renderVibLevel()
         renderCourses(Store.courses)
         renderTableHint(Store.timetableRaw)
@@ -84,6 +86,16 @@ class MainActivity : AppCompatActivity() {
         b.btnVibHeavy.setOnClickListener { Store.vibrateLevel = 2; renderVibLevel() }
         b.btnVibTest.setOnClickListener { testVibrate() }
 
+        // 闹钟铃声
+        b.swSound.setOnCheckedChangeListener { _, v ->
+            Store.soundOn = v
+            if (v) testSound(3)
+        }
+        b.btnSoundTest.setOnClickListener { testSound(4) }
+        b.etSoundSec.doAfterTextChanged { s ->
+            s?.toString()?.toIntOrNull()?.let { Store.soundSec = it }
+        }
+
         // 轮询间隔随手改随手存，改完要在「开始监控」前生效需重启服务
         b.etPoll.doAfterTextChanged { s ->
             s?.toString()?.toIntOrNull()?.let { Store.pollSec = it }
@@ -104,12 +116,22 @@ class MainActivity : AppCompatActivity() {
     /**
      * 命令行触发，方便连着电脑时验证：
      *   adb shell am start -n com.yg.ybkautosign/.MainActivity -e action test      ← 立即查一次开签
-     *   adb shell am start -n com.yg.ybkautosign/.MainActivity -e action vibrate   ← 立即震一次
+     *   adb shell am start -n com.yg.ybkautosign/.MainActivity -e action vibrate  ← 立即震一次
+     *   adb shell am start -n com.yg.ybkautosign/.MainActivity -e action sound    ← 立即放 4 秒铃声
      */
     private fun handleCliAction() {
-        when (intent?.getStringExtra("action")) {
+        val act = intent?.getStringExtra("action")
+        if (!act.isNullOrEmpty()) LogBus.log("[CMD] action=$act sec=${intent?.getStringExtra("sec")}")
+        when (act) {
             "test" -> b.root.postDelayed({ testOnce() }, 1200)
             "vibrate" -> b.root.postDelayed({ testVibrate() }, 1200)
+            "sound" -> b.root.postDelayed({
+                testSound(intent?.getStringExtra("sec")?.toIntOrNull() ?: 4)
+            }, 1200)
+            "alert" -> b.root.postDelayed({
+                LogBus.log("[自检] 模拟一次开签提醒（震动 + 铃声 + 通知）")
+                Notifier.alertCheckin("测试课程（模拟）", false)
+            }, 1200)
         }
     }
 
@@ -241,6 +263,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** 立刻震一次，用户在真机上确认「手机到底震不震」。 */
+    private fun testSound(sec: Int) {
+        Notifier.playAlarm(sec)
+        LogBus.log("[铃声] 试听 ${sec}s（开关：${if (Store.soundOn) "开" else "关"}）")
+    }
+
     private fun testVibrate() {
         if (!Store.vibrateOn) {
             Toast.makeText(this, "震动提醒是关的，先打开上面的开关", Toast.LENGTH_SHORT).show()
